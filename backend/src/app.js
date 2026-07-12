@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/authRoutes");
 const healthRoutes = require("./routes/healthRoutes");
+const roomRoutes = require("./routes/roomRoutes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -27,6 +28,7 @@ if (process.env.NODE_ENV !== "test") {
 // Routes
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
