@@ -6,9 +6,14 @@ import Room from "./pages/Room";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
+import useSocket from "./hooks/useSocket";
 
 function App() {
   const { isAuthenticated, loading } = useAuth();
+
+  // Connects the shared socket whenever authenticated, disconnects on logout.
+  // Individual pages (Room) layer per-room join/leave on top of this.
+  useSocket();
 
   if (loading) {
     return (

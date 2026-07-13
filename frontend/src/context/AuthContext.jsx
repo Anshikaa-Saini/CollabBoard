@@ -4,6 +4,7 @@ import { loginApi, registerApi, getMeApi } from "../api/authApi";
 const AuthContext = createContext(null);
 
 const TOKEN_KEY = "collabboard_token";
+export { TOKEN_KEY };
 const USER_KEY = "collabboard_user";
 
 export const AuthProvider = ({ children }) => {

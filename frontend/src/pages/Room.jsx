@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getRoomByIdApi } from "../api/roomApi";
 import Whiteboard from "../components/whiteboard/Whiteboard";
+import ParticipantBadge from "../components/whiteboard/ParticipantBadge";
 import Logo from "../components/Logo";
+import useRoomSocket from "../hooks/useRoomSocket";
+import throttle from "../utils/throttle";
 
 const Room = () => {
   const { roomId } = useParams();
@@ -10,6 +13,19 @@ const Room = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const whiteboardRef = useRef(null);
+
+  // Only start joining the Socket.io room once Whiteboard has actually
+  // mounted (i.e. metadata finished loading and there's no error) - this
+  // guarantees whiteboardRef.current is set before any board-state/draw
+  // events can arrive for it to apply.
+  const activeRoomId = loading || error ? null : roomId;
+
+  const { connected, participantCount, remoteCursors, emitDraw, emitClear, emitSnapshot, emitCursor } =
+    useRoomSocket(activeRoomId, whiteboardRef);
+
+  const throttledCursorMove = useMemo(() => throttle(emitCursor, 50), [emitCursor]);
 
   useEffect(() => {
     const fetchRoom = async () => {
@@ -83,20 +99,30 @@ const Room = () => {
           <Logo />
         </div>
 
-        <div className="text-right">
-          <p className="text-sm font-semibold text-gray-900">{room?.name}</p>
-          <button
-            type="button"
-            onClick={handleCopyCode}
-            className="text-xs font-medium tracking-wider text-gray-400 transition-colors hover:text-primary-600"
-          >
-            CODE: {room?.code} · {copied ? "Copied!" : "Copy"}
-          </button>
+        <div className="flex items-center gap-4">
+          <ParticipantBadge count={participantCount} connected={connected} />
+          <div className="text-right">
+            <p className="text-sm font-semibold text-gray-900">{room?.name}</p>
+            <button
+              type="button"
+              onClick={handleCopyCode}
+              className="text-xs font-medium tracking-wider text-gray-400 transition-colors hover:text-primary-600"
+            >
+              CODE: {room?.code} · {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="min-h-0 flex-1">
-        <Whiteboard />
+        <Whiteboard
+          ref={whiteboardRef}
+          onDrawSegment={emitDraw}
+          onClearBoard={emitClear}
+          onSnapshot={emitSnapshot}
+          onCursorMove={throttledCursorMove}
+          remoteCursors={remoteCursors}
+        />
       </div>
     </div>
   );
