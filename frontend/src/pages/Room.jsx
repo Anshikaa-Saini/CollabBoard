@@ -3,9 +3,15 @@ import { useParams, Link } from "react-router-dom";
 import { getRoomByIdApi } from "../api/roomApi";
 import Whiteboard from "../components/whiteboard/Whiteboard";
 import ParticipantBadge from "../components/whiteboard/ParticipantBadge";
+import HistoryMenu from "../components/whiteboard/HistoryMenu";
+import AiPanel from "../components/whiteboard/AiPanel";
 import Logo from "../components/Logo";
 import useRoomSocket from "../hooks/useRoomSocket";
+import useBoardPersistence from "../hooks/useBoardPersistence";
+import useStickyNotes from "../hooks/useStickyNotes";
+import useMeetingSummary from "../hooks/useMeetingSummary";
 import throttle from "../utils/throttle";
+import formatRelativeTime from "../utils/formatRelativeTime";
 
 const Room = () => {
   const { roomId } = useParams();
@@ -13,19 +19,35 @@ const Room = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const whiteboardRef = useRef(null);
 
-  // Only start joining the Socket.io room once Whiteboard has actually
-  // mounted (i.e. metadata finished loading and there's no error) - this
-  // guarantees whiteboardRef.current is set before any board-state/draw
-  // events can arrive for it to apply.
+  // Only start joining the Socket.io room / loading the persisted board
+  // once Whiteboard has actually mounted (metadata finished loading, no
+  // error) - this guarantees whiteboardRef.current is set before any
+  // board-state/board-load/draw events can arrive for it to apply.
   const activeRoomId = loading || error ? null : roomId;
 
   const { connected, participantCount, remoteCursors, emitDraw, emitClear, emitSnapshot, emitCursor } =
     useRoomSocket(activeRoomId, whiteboardRef);
 
+  const { saving, lastSavedAt, history, markDirty, save } = useBoardPersistence(
+    activeRoomId,
+    whiteboardRef
+  );
+
+  const stickyNotes = useStickyNotes(activeRoomId);
+  const meetingSummary = useMeetingSummary(activeRoomId);
+
   const throttledCursorMove = useMemo(() => throttle(emitCursor, 50), [emitCursor]);
+
+  // A completed local stroke/clear both broadcasts live to collaborators
+  // (emitSnapshot) and marks the board dirty for the next auto-save.
+  const handleLocalSnapshot = (dataUrl) => {
+    emitSnapshot(dataUrl);
+    markDirty(dataUrl);
+  };
 
   useEffect(() => {
     const fetchRoom = async () => {
@@ -55,6 +77,10 @@ const Room = () => {
     }
   };
 
+  const handleRestoreHistory = (snapshot) => {
+    whiteboardRef.current?.loadSnapshot(snapshot);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
@@ -76,7 +102,7 @@ const Room = () => {
 
   return (
     <div className="flex h-screen flex-col bg-white">
-      <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-4">
           <Link
             to="/dashboard"
@@ -99,8 +125,37 @@ const Room = () => {
           <Logo />
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <ParticipantBadge count={participantCount} connected={connected} />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={save}
+              className="btn-secondary px-3 py-1.5 text-sm"
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            {lastSavedAt && (
+              <span className="hidden text-xs text-gray-400 sm:inline">
+                Saved {formatRelativeTime(lastSavedAt)}
+              </span>
+            )}
+          </div>
+
+          <HistoryMenu history={history} onRestore={handleRestoreHistory} />
+
+          <button
+            type="button"
+            onClick={() => setAiPanelOpen((prev) => !prev)}
+            className={`btn-secondary px-3 py-1.5 text-sm ${
+              aiPanelOpen ? "bg-primary-50 text-primary-600" : ""
+            }`}
+          >
+            AI Tools
+          </button>
+
           <div className="text-right">
             <p className="text-sm font-semibold text-gray-900">{room?.name}</p>
             <button
@@ -114,14 +169,31 @@ const Room = () => {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1">
-        <Whiteboard
-          ref={whiteboardRef}
-          onDrawSegment={emitDraw}
-          onClearBoard={emitClear}
-          onSnapshot={emitSnapshot}
-          onCursorMove={throttledCursorMove}
-          remoteCursors={remoteCursors}
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <Whiteboard
+            ref={whiteboardRef}
+            onDrawSegment={emitDraw}
+            onClearBoard={emitClear}
+            onSnapshot={handleLocalSnapshot}
+            onCursorMove={throttledCursorMove}
+            remoteCursors={remoteCursors}
+            stickyNotes={stickyNotes.notes}
+            onStickyNoteDragEnd={stickyNotes.updatePosition}
+            onStickyNoteDelete={stickyNotes.remove}
+          />
+        </div>
+
+        <AiPanel
+          open={aiPanelOpen}
+          onClose={() => setAiPanelOpen(false)}
+          stickyGenerating={stickyNotes.generating}
+          stickyError={stickyNotes.error}
+          onGenerateStickyNotes={stickyNotes.generate}
+          summary={meetingSummary.summary}
+          summaryGenerating={meetingSummary.generating}
+          summaryError={meetingSummary.error}
+          onGenerateSummary={meetingSummary.generate}
         />
       </div>
     </div>

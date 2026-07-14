@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Toolbar from "./Toolbar";
 import RemoteCursor from "./RemoteCursor";
+import StickyNoteItem from "./StickyNoteItem";
 import useCanvasHistory from "../../hooks/useCanvasHistory";
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from "../../constants/canvas";
 
@@ -14,7 +15,19 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from "../../constants/canvas";
  * have to go through React state/re-renders.
  */
 const Whiteboard = forwardRef(
-  ({ onDrawSegment, onClearBoard, onSnapshot, onCursorMove, remoteCursors = {} }, ref) => {
+  (
+    {
+      onDrawSegment,
+      onClearBoard,
+      onSnapshot,
+      onCursorMove,
+      remoteCursors = {},
+      stickyNotes = [],
+      onStickyNoteDragEnd,
+      onStickyNoteDelete,
+    },
+    ref
+  ) => {
     const canvasRef = useRef(null);
     const isDrawingRef = useRef(false);
     const lastPointRef = useRef({ x: 0, y: 0 });
@@ -128,6 +141,7 @@ const Whiteboard = forwardRef(
         };
         img.src = dataUrl;
       },
+      getSnapshot: () => canvasRef.current.toDataURL(),
     }));
 
     return (
@@ -169,6 +183,16 @@ const Whiteboard = forwardRef(
                   color={cursor.color}
                   x={cursor.x}
                   y={cursor.y}
+                />
+              ))}
+            </div>
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+              {stickyNotes.map((note) => (
+                <StickyNoteItem
+                  key={note._id}
+                  note={note}
+                  onDragEnd={onStickyNoteDragEnd}
+                  onDelete={onStickyNoteDelete}
                 />
               ))}
             </div>

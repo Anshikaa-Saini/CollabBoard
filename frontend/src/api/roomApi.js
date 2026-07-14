@@ -7,3 +7,7 @@ export const joinRoomApi = (payload) => axiosInstance.post("/rooms/join", payloa
 export const getMyRoomsApi = () => axiosInstance.get("/rooms");
 
 export const getRoomByIdApi = (id) => axiosInstance.get(`/rooms/${id}`);
+
+export const renameRoomApi = (id, name) => axiosInstance.patch(`/rooms/${id}`, { name });
+
+export const deleteRoomApi = (id) => axiosInstance.delete(`/rooms/${id}`);

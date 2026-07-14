@@ -4,9 +4,17 @@ import Navbar from "../components/Navbar";
 import RoomCard from "../components/RoomCard";
 import CreateRoomDialog from "../components/CreateRoomDialog";
 import JoinRoomDialog from "../components/JoinRoomDialog";
+import RenameRoomDialog from "../components/RenameRoomDialog";
+import ConfirmDialog from "../components/ConfirmDialog";
 import AlertBanner from "../components/AlertBanner";
 import { useAuth } from "../context/AuthContext";
-import { createRoomApi, joinRoomApi, getMyRoomsApi } from "../api/roomApi";
+import {
+  createRoomApi,
+  joinRoomApi,
+  getMyRoomsApi,
+  renameRoomApi,
+  deleteRoomApi,
+} from "../api/roomApi";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -18,6 +26,8 @@ const Dashboard = () => {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const fetchRooms = useCallback(async () => {
     setLoadingRooms(true);
@@ -46,6 +56,16 @@ const Dashboard = () => {
     const res = await joinRoomApi({ code });
     const room = res.data.data.room;
     navigate(`/room/${room._id}`);
+  };
+
+  const handleRenameRoom = async (id, name) => {
+    await renameRoomApi(id, name);
+    await fetchRooms();
+  };
+
+  const handleDeleteRoom = async () => {
+    await deleteRoomApi(deleteTarget._id);
+    await fetchRooms();
   };
 
   return (
@@ -157,7 +177,13 @@ const Dashboard = () => {
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {rooms.map((room) => (
-                <RoomCard key={room._id} room={room} currentUserId={user?._id} />
+                <RoomCard
+                  key={room._id}
+                  room={room}
+                  currentUserId={user?._id}
+                  onRename={setRenameTarget}
+                  onDelete={setDeleteTarget}
+                />
               ))}
             </div>
           )}
@@ -170,6 +196,22 @@ const Dashboard = () => {
         onCreate={handleCreateRoom}
       />
       <JoinRoomDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoin={handleJoinRoom} />
+
+      <RenameRoomDialog
+        open={!!renameTarget}
+        room={renameTarget}
+        onClose={() => setRenameTarget(null)}
+        onRename={handleRenameRoom}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Room"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This will permanently remove the room, its board, and all sticky notes for everyone.`}
+        confirmLabel="Delete Room"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteRoom}
+      />
     </div>
   );
 };
