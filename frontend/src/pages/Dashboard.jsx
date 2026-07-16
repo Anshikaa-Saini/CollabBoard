@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import RoomCard from "../components/RoomCard";
 import CreateRoomDialog from "../components/CreateRoomDialog";
@@ -7,6 +8,7 @@ import JoinRoomDialog from "../components/JoinRoomDialog";
 import RenameRoomDialog from "../components/RenameRoomDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
 import AlertBanner from "../components/AlertBanner";
+import Skeleton from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import {
   createRoomApi,
@@ -61,11 +63,13 @@ const Dashboard = () => {
   const handleRenameRoom = async (id, name) => {
     await renameRoomApi(id, name);
     await fetchRooms();
+    toast.success("Room renamed");
   };
 
   const handleDeleteRoom = async () => {
     await deleteRoomApi(deleteTarget._id);
     await fetchRooms();
+    toast.success("Room deleted");
   };
 
   return (
@@ -147,8 +151,17 @@ const Dashboard = () => {
           <AlertBanner message={fetchError} />
 
           {loadingRooms ? (
-            <div className="card flex items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="card flex flex-col gap-3">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              ))}
             </div>
           ) : rooms.length === 0 ? (
             <div className="card flex flex-col items-center justify-center py-16 text-center">

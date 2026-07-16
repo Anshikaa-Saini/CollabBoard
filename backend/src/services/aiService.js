@@ -66,29 +66,52 @@ const parseSummaryObject = (raw) => {
 };
 
 /**
+ * Normalizes errors thrown by the OpenAI SDK (bad key, rate limit, provider
+ * outage, etc.) into our own ApiError shape, so callers/clients get a clean
+ * message instead of a raw third-party error leaking through.
+ */
+const wrapAiError = (err) => {
+  if (err instanceof ApiError) return err; // e.g. from ensureConfigured() above
+
+  const status = err?.status || err?.response?.status;
+
+  if (status === 401 || status === 403) {
+    return new ApiError(502, "AI provider rejected the request - check the API key configuration.");
+  }
+  if (status === 429) {
+    return new ApiError(429, "AI provider rate limit reached. Please try again shortly.");
+  }
+  return new ApiError(502, "AI request failed. Please try again.");
+};
+
+/**
  * Turns a short prompt (e.g. "Generate sprint tasks for login module") into
  * a list of concise, actionable task strings for sticky notes.
  */
 const generateStickyNoteTasks = async (prompt) => {
   ensureConfigured();
 
-  const completion = await getClient().chat.completions.create({
-    model: MODEL,
-    temperature: 0.5,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You turn a short product/engineering prompt into a concise list of actionable tasks. " +
-          "Respond with ONLY a JSON array of strings, no prose, no markdown fences. " +
-          "Generate at most 8 tasks, each under 12 words.",
-      },
-      { role: "user", content: prompt },
-    ],
-  });
+  try {
+    const completion = await getClient().chat.completions.create({
+      model: MODEL,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You turn a short product/engineering prompt into a concise list of actionable tasks. " +
+            "Respond with ONLY a JSON array of strings, no prose, no markdown fences. " +
+            "Generate at most 8 tasks, each under 12 words.",
+        },
+        { role: "user", content: prompt },
+      ],
+    });
 
-  const raw = completion.choices[0]?.message?.content || "[]";
-  return parseJsonArray(raw);
+    const raw = completion.choices[0]?.message?.content || "[]";
+    return parseJsonArray(raw);
+  } catch (err) {
+    throw wrapAiError(err);
+  }
 };
 
 /**
@@ -98,23 +121,27 @@ const generateStickyNoteTasks = async (prompt) => {
 const generateMeetingSummary = async (notesText) => {
   ensureConfigured();
 
-  const completion = await getClient().chat.completions.create({
-    model: MODEL,
-    temperature: 0.4,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You summarize brainstorm/whiteboard notes into a structured meeting recap. " +
-          "Respond with ONLY valid JSON matching this exact shape, no prose, no markdown fences: " +
-          '{"summary": string, "actionItems": string[], "decisionsTaken": string[], "openQuestions": string[]}',
-      },
-      { role: "user", content: notesText },
-    ],
-  });
+  try {
+    const completion = await getClient().chat.completions.create({
+      model: MODEL,
+      temperature: 0.4,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You summarize brainstorm/whiteboard notes into a structured meeting recap. " +
+            "Respond with ONLY valid JSON matching this exact shape, no prose, no markdown fences: " +
+            '{"summary": string, "actionItems": string[], "decisionsTaken": string[], "openQuestions": string[]}',
+        },
+        { role: "user", content: notesText },
+      ],
+    });
 
-  const raw = completion.choices[0]?.message?.content || "{}";
-  return parseSummaryObject(raw);
+    const raw = completion.choices[0]?.message?.content || "{}";
+    return parseSummaryObject(raw);
+  } catch (err) {
+    throw wrapAiError(err);
+  }
 };
 
 module.exports = { generateStickyNoteTasks, generateMeetingSummary };

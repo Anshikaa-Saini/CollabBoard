@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useAuth, TOKEN_KEY } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
+import { TOKEN_KEY } from "../constants/storageKeys";
 import socket, { connectSocket, disconnectSocket } from "../socket/socket";
 
 /**

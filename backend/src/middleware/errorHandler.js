@@ -17,6 +17,14 @@ const errorHandler = (err, req, res, next) => {
   let message = err.message || "Internal Server Error";
   let details = err.details || null;
 
+  // Malformed JSON body (e.g. a client sends invalid JSON) - body-parser
+  // marks this with a `type` of 'entity.parse.failed' rather than a
+  // Mongoose-style error name.
+  if (err.type === "entity.parse.failed") {
+    statusCode = 400;
+    message = "Invalid JSON in request body";
+  }
+
   // Mongoose bad ObjectId
   if (err.name === "CastError") {
     statusCode = 400;
@@ -42,6 +50,15 @@ const errorHandler = (err, req, res, next) => {
 
   if (process.env.NODE_ENV !== "production") {
     console.error(err);
+  }
+
+  // In production, don't leak internal error details for unclassified 500s
+  // (the real message is still logged above). ApiError instances set
+  // isOperational = true, meaning "this was thrown intentionally with a
+  // safe, specific message" - anything else is treated as an unexpected
+  // bug and gets a generic message instead.
+  if (statusCode === 500 && process.env.NODE_ENV === "production" && !err.isOperational) {
+    message = "Something went wrong. Please try again later.";
   }
 
   res.status(statusCode).json({

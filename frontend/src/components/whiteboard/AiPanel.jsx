@@ -5,6 +5,11 @@ const TABS = [
   { id: "summary", label: "Meeting Summary" },
 ];
 
+// Mirrors the backend's generateStickyNotesSchema (min 3, max 300 chars) so
+// the person gets instant feedback instead of waiting on a round trip.
+const PROMPT_MIN_LENGTH = 3;
+const PROMPT_MAX_LENGTH = 300;
+
 const SummarySection = ({ title, items }) => (
   <section>
     <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">{title}</h3>
@@ -39,18 +44,26 @@ const AiPanel = ({
 }) => {
   const [activeTab, setActiveTab] = useState("sticky");
   const [prompt, setPrompt] = useState("");
+  const [promptError, setPromptError] = useState("");
 
   if (!open) return null;
 
   const handleStickySubmit = async (e) => {
     e.preventDefault();
-    if (!prompt.trim()) return;
-    const ok = await onGenerateStickyNotes(prompt.trim());
+    setPromptError("");
+
+    const trimmed = prompt.trim();
+    if (trimmed.length < PROMPT_MIN_LENGTH) {
+      setPromptError(`Prompt must be at least ${PROMPT_MIN_LENGTH} characters`);
+      return;
+    }
+
+    const ok = await onGenerateStickyNotes(trimmed);
     if (ok) setPrompt("");
   };
 
   return (
-    <div className="flex h-full w-full max-w-sm flex-col border-l border-gray-100 bg-white sm:w-96">
+    <div className="fixed inset-0 z-30 flex h-full w-full flex-col bg-white sm:static sm:z-auto sm:w-96 sm:max-w-sm sm:border-l sm:border-gray-100">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h2 className="text-sm font-bold text-gray-900">AI Tools</h2>
         <button
@@ -98,18 +111,25 @@ const AiPanel = ({
               Describe what you need and AI will drop draggable sticky notes onto the board.
             </p>
             <form onSubmit={handleStickySubmit} className="flex flex-col gap-3">
-              {stickyError && (
+              {(stickyError || promptError) && (
                 <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-500">
-                  {stickyError}
+                  {promptError || stickyError}
                 </p>
               )}
               <textarea
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  setPromptError("");
+                }}
                 placeholder='e.g. "Generate sprint tasks for login module"'
                 rows={3}
+                maxLength={PROMPT_MAX_LENGTH}
                 className="input-field resize-none"
               />
+              <p className="-mt-1 text-right text-xs text-gray-400">
+                {prompt.length}/{PROMPT_MAX_LENGTH}
+              </p>
               <button type="submit" className="btn-primary w-full" disabled={stickyGenerating}>
                 {stickyGenerating ? "Generating..." : "Generate Sticky Notes"}
               </button>

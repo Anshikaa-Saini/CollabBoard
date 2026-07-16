@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { getLatestSummaryApi, generateSummaryApi } from "../api/aiApi";
 
 /**
@@ -31,6 +32,7 @@ const useMeetingSummary = (roomId) => {
     try {
       const res = await generateSummaryApi(roomId);
       setSummary(res.data.data.summary);
+      toast.success("Summary generated");
       return true;
     } catch (err) {
       setError(err.response?.data?.message || "Failed to generate summary");

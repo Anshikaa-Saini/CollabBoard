@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   getStickyNotesApi,
   generateStickyNotesApi,
@@ -37,7 +38,9 @@ const useStickyNotes = (roomId) => {
       setGenerating(true);
       try {
         const res = await generateStickyNotesApi(roomId, prompt);
-        setNotes((prev) => [...prev, ...res.data.data.notes]);
+        const created = res.data.data.notes;
+        setNotes((prev) => [...prev, ...created]);
+        toast.success(`Added ${created.length} sticky note${created.length === 1 ? "" : "s"}`);
         return true;
       } catch (err) {
         setError(err.response?.data?.message || "Failed to generate sticky notes");

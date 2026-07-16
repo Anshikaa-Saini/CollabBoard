@@ -25,6 +25,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_production}
       - JWT_EXPIRES_IN=7d
       - CLIENT_URL=http://localhost:5173
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
       - mongo
     networks:

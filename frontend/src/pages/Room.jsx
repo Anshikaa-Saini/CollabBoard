@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import { getRoomByIdApi } from "../api/roomApi";
 import Whiteboard from "../components/whiteboard/Whiteboard";
 import ParticipantBadge from "../components/whiteboard/ParticipantBadge";
 import HistoryMenu from "../components/whiteboard/HistoryMenu";
 import AiPanel from "../components/whiteboard/AiPanel";
 import Logo from "../components/Logo";
+import PageLoader from "../components/PageLoader";
 import useRoomSocket from "../hooks/useRoomSocket";
 import useBoardPersistence from "../hooks/useBoardPersistence";
 import useStickyNotes from "../hooks/useStickyNotes";
@@ -79,14 +81,11 @@ const Room = () => {
 
   const handleRestoreHistory = (snapshot) => {
     whiteboardRef.current?.loadSnapshot(snapshot);
+    toast.success("Restored from history");
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-100 border-t-primary-600" />
-      </div>
-    );
+    return <PageLoader label="Loading room..." />;
   }
 
   if (error) {
@@ -131,7 +130,7 @@ const Room = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={save}
+              onClick={() => save(true)}
               className="btn-secondary px-3 py-1.5 text-sm"
               disabled={saving}
             >

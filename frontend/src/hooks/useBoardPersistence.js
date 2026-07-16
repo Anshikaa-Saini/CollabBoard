@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { getBoardApi, saveBoardApi } from "../api/boardApi";
 
 const AUTO_SAVE_INTERVAL_MS = 10000;
@@ -64,23 +65,31 @@ const useBoardPersistence = (roomId, whiteboardRef) => {
     dirtyRef.current = true;
   }, []);
 
-  const save = useCallback(async () => {
-    if (!roomId) return;
+  const save = useCallback(
+    async (showToast = false) => {
+      if (!roomId) return;
 
-    const snapshot = latestSnapshotRef.current || whiteboardRef.current?.getSnapshot();
-    if (!snapshot) return;
+      const snapshot = latestSnapshotRef.current || whiteboardRef.current?.getSnapshot();
+      if (!snapshot) return;
 
-    setSaving(true);
-    try {
-      const res = await saveBoardApi(roomId, snapshot);
-      setLastSavedAt(res.data.data.lastSavedAt);
-      dirtyRef.current = false;
-    } catch {
-      // Leave dirtyRef true so the next auto-save/manual save attempt retries
-    } finally {
-      setSaving(false);
-    }
-  }, [roomId, whiteboardRef]);
+      setSaving(true);
+      try {
+        const res = await saveBoardApi(roomId, snapshot);
+        setLastSavedAt(res.data.data.lastSavedAt);
+        dirtyRef.current = false;
+        if (showToast) toast.success("Board saved");
+      } catch {
+        // Leave dirtyRef true so the next auto-save/manual save attempt retries.
+        // Auto-save stays silent on failure by design (it just retries next
+        // cycle); only the manual Save button surfaces a failure, since that's
+        // the one case where the user has no other way to know it didn't work.
+        if (showToast) toast.error("Failed to save board");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [roomId, whiteboardRef]
+  );
 
   // Auto-save every 10 seconds, but only if something changed since the last save
   useEffect(() => {

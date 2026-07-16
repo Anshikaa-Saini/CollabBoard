@@ -1,11 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { loginApi, registerApi, getMeApi } from "../api/authApi";
+import { TOKEN_KEY, USER_KEY } from "../constants/storageKeys";
 
 const AuthContext = createContext(null);
-
-const TOKEN_KEY = "collabboard_token";
-export { TOKEN_KEY };
-const USER_KEY = "collabboard_user";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
