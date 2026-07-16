@@ -11,7 +11,16 @@
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-CollabBoard is a full-stack, production-style web app that lets teams create rooms and draw together on a shared whiteboard in real time - plus a couple of genuinely useful AI features (auto-generated sticky notes and structured meeting summaries) layered on top. It was built as a portfolio project to be **resume-worthy and easy to explain in a technical interview**: every architectural decision below has a one-sentence justification, and the codebase deliberately avoids unnecessary complexity (no Redis, no CRDTs, no microservices) in favor of patterns that are simple to reason about and simple to talk through.
+
+## Demo
+
+Frontend: https://collabboard.vercel.app
+
+Backend: https://collabboard-api.onrender.com
+
+
+
+CollabBoard is a full-stack, production-style web app that lets teams create rooms and draw together on a shared whiteboard in real time - plus a couple of genuinely useful AI features (auto-generated sticky notes and structured meeting summaries) layered on top.
 
 ---
 
@@ -26,7 +35,6 @@ CollabBoard is a full-stack, production-style web app that lets teams create roo
 - [Running with Docker](#running-with-docker)
 - [Deployment](#deployment)
 - [API Reference](#api-reference)
-- [Future Improvements](#future-improvements)
 - [License](#license)
 
 ---
@@ -35,25 +43,13 @@ CollabBoard is a full-stack, production-style web app that lets teams create roo
 
 A user registers, creates or joins a room via a short shareable code, and draws on a canvas with a collaborator in real time - cursors, strokes, and clears all sync live over WebSockets. The board auto-saves to MongoDB every 10 seconds (and on demand via a Save button), keeps a short restoreable history, and reloads exactly where it left off the next time the room is opened. On top of that, a lightweight AI panel can turn a one-line prompt like *"Generate sprint tasks for login module"* into draggable sticky notes, or turn a room's sticky notes into a structured meeting recap (summary, action items, decisions, open questions).
 
-This repo was built incrementally across five milestones:
-1. **Auth & Dashboard** - JWT auth, protected routes, dashboard shell
-2. **Rooms & Local Canvas** - room create/join, pen/eraser/undo/redo drawing (local only)
-3. **Real-Time Collaboration** - Socket.io rooms, live cursors, participant count, reconnect handling
-4. **Persistence & AI** - MongoDB-backed board saves/history, room rename/delete, AI sticky notes + meeting summaries
-5. **Production Polish** - toasts, centralized error handling, input validation, Docker, deployment docs *(this milestone)*
-
 ---
 
 ## Architecture
 
-![Architecture diagram](docs/architecture.svg)
+![Architecture diagram](Docs/architecture.png)
 
-**Request flow, in one paragraph:** the React SPA talks to Express over two channels - REST for everything CRUD-shaped (auth, rooms, board saves, sticky notes, AI) and a single persistent Socket.io connection for anything that needs to feel instant (live strokes, cursor positions, participant counts). Both are authenticated with the same JWT. Express talks to MongoDB via Mongoose for all persistence, and to an OpenAI-compatible chat completions endpoint (OpenAI or Groq, swappable via one env var) for the two AI features.
-
-A few deliberate simplicity tradeoffs, worth knowing going in:
-- **Whiteboard content is a raster snapshot, not a stroke log.** The canvas is persisted as a full `data:image/png` snapshot rather than a list of individual draw operations. This makes save/restore trivial (draw an image) at the cost of not supporting fine-grained replay - a reasonable tradeoff for a whiteboard, not a design tool.
-- **Real-time conflict resolution is Last-Write-Wins by timestamp**, not a CRDT or Operational Transform. Every full-board sync carries a timestamp; the server only accepts a newer one. Simple to implement, simple to explain, and correct enough for a whiteboard where "the last thing drawn wins" matches user intuition.
-- **Socket.io room state lives in-memory** in the Node process (a `Map`, not Redis). This means it doesn't horizontally scale past one server instance as-is - a known, intentional limitation for this project's scope (see [Future Improvements](#future-improvements)).
+**Request flow:** the React SPA talks to Express over two channels - REST for everything CRUD-shaped (auth, rooms, board saves, sticky notes, AI) and a single persistent Socket.io connection for anything that needs to feel instant (live strokes, cursor positions, participant counts). Both are authenticated with the same JWT. Express talks to MongoDB via Mongoose for all persistence, and to an OpenAI-compatible chat completions endpoint (OpenAI or Groq, swappable via one env var) for the two AI features.
 
 ---
 
@@ -108,7 +104,9 @@ A few deliberate simplicity tradeoffs, worth knowing going in:
 ## Tech Stack
 
 **Frontend:** React 18 (Vite), Tailwind CSS, React Router, Axios, Socket.io Client, react-hot-toast
+
 **Backend:** Node.js, Express, MongoDB + Mongoose, Socket.io, JWT, bcryptjs, Zod, OpenAI SDK
+
 **Infra:** Docker + Docker Compose, MongoDB Atlas, Vercel (frontend), Render (backend)
 
 ---
@@ -197,10 +195,6 @@ npm run dev
 ```
 
 Frontend runs at `http://localhost:5173`.
-
-### 3. Try it
-
-Open two browser windows (or one normal + one incognito), register two accounts, create a room in one, join it by code from the other, and draw.
 
 ---
 
@@ -297,21 +291,6 @@ All routes are prefixed with `/api`. Protected routes require `Authorization: Be
 | POST | `/rooms/:id/ai/summary` | Yes | Generate a new summary from sticky notes |
 
 **Socket.io events** (see `backend/src/socket/index.js` for the full contract): `join-room`, `draw`, `clear-board`, `canvas-sync`, `cursor-move`, `leave-room` (client to server); `board-state`, `participants-update`, `draw`, `clear-board`, `canvas-sync`, `cursor-move`, `cursor-leave` (server to clients).
-
----
-
-## Future Improvements
-
-Realistic next steps, roughly in priority order - good material for an interview "what would you do next" question:
-
-- **Real-time sticky note sync** - currently sticky notes only load on room open; broadcasting create/move/delete over the existing socket connection would make them feel as live as the whiteboard.
-- **Horizontal scaling for Socket.io** - swap the in-memory room state `Map` for Redis (via the `socket.io-redis-adapter`) so the backend can run more than one instance.
-- **True conflict-free collaboration** - replace Last-Write-Wins with an Operational Transform or CRDT (e.g. Yjs) if concurrent editing on the exact same region becomes a real problem at scale.
-- **Automated tests** - a Jest/Supertest suite for the REST API and a Playwright suite for the two-browser real-time flows; this milestone was verified with hand-written integration scripts rather than a committed test suite.
-- **CI/CD** - a GitHub Actions workflow to run lint/tests on PRs and auto-deploy on merge to `main`.
-- **Rate limiting** - particularly on the AI endpoints, to control cost and abuse.
-- **Refresh tokens** - the current JWT is long-lived with no rotation; short-lived access tokens + refresh tokens would be the standard production upgrade.
-- **Board asset storage** - move canvas snapshots out of MongoDB documents and into object storage (S3-compatible), storing just a URL - keeps documents small as boards get more detailed.
 
 ---
 
