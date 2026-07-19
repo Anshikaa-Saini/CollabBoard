@@ -14,9 +14,9 @@
 
 ## Demo
 
-Frontend: https://collabboard.vercel.app
+Frontend: https://collab-board-eosin.vercel.app
 
-Backend: https://collabboard-api.onrender.com
+Backend: https://collabboard-86sn.onrender.com
 
 
 
@@ -27,13 +27,9 @@ CollabBoard is a full-stack, production-style web app that lets teams create roo
 ## Table of Contents
 - [Project Overview](#project-overview)
 - [Architecture](#architecture)
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Setup (Local Development)](#setup-local-development)
-- [Running with Docker](#running-with-docker)
-- [Deployment](#deployment)
 - [API Reference](#api-reference)
 - [License](#license)
 
@@ -50,16 +46,6 @@ A user registers, creates or joins a room via a short shareable code, and draws 
 ![Architecture diagram](Docs/architecture.png)
 
 **Request flow:** the React SPA talks to Express over two channels - REST for everything CRUD-shaped (auth, rooms, board saves, sticky notes, AI) and a single persistent Socket.io connection for anything that needs to feel instant (live strokes, cursor positions, participant counts). Both are authenticated with the same JWT. Express talks to MongoDB via Mongoose for all persistence, and to an OpenAI-compatible chat completions endpoint (OpenAI or Groq, swappable via one env var) for the two AI features.
-
----
-
-## Screenshots
-
-> Add screenshots here after your first deploy - a few from `/dashboard`, the whiteboard in `/room/:id` with two cursors visible, and the AI panel open are the most useful ones to include. Suggested path: `docs/screenshots/`.
-
-| Dashboard | Whiteboard | AI Panel |
-|---|---|---|
-| _add screenshot_ | _add screenshot_ | _add screenshot_ |
 
 ---
 
@@ -145,123 +131,6 @@ collabboard/
 ├── .env.example               # for docker compose
 └── README.md
 ```
-
----
-
-## Setup (Local Development)
-
-### Prerequisites
-- Node.js 18+
-- MongoDB running locally, or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster
-- (Optional, for AI features) An [OpenAI](https://platform.openai.com) or [Groq](https://console.groq.com) API key
-
-### 1. Backend
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Edit `backend/.env`:
-
-```
-PORT=5000
-NODE_ENV=development
-MONGO_URI=mongodb://localhost:27017/collabboard
-JWT_SECRET=some_long_random_string
-JWT_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:5173
-
-# Optional - AI features return a clear 503 if left blank
-OPENAI_API_KEY=
-OPENAI_BASE_URL=
-OPENAI_MODEL=gpt-4o-mini
-```
-
-```bash
-npm install
-npm run dev
-```
-
-Backend runs at `http://localhost:5000`. Verify with `curl http://localhost:5000/api/health`.
-
-### 2. Frontend
-
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
-```
-
-Frontend runs at `http://localhost:5173`.
-
----
-
-## Running with Docker
-
-From the project root:
-
-```bash
-cp .env.example .env   # sets JWT_SECRET and (optionally) AI keys for docker compose
-docker compose up --build
-```
-
-This starts three containers:
-- `mongo` on port `27017`
-- `backend` (with a built-in health check hitting `/api/health`) on port `5000`
-- `frontend` (served via Nginx) on port `5173`
-
-```bash
-docker compose down       # stop
-docker compose down -v    # stop and wipe the Mongo volume
-```
-
----
-
-## Deployment
-
-The app is designed to deploy as three independent pieces, each reading configuration entirely from environment variables - no code changes needed between local dev and production.
-
-### 1. Database - MongoDB Atlas
-1. Create a free cluster at [mongodb.com/atlas](https://www.mongodb.com/atlas).
-2. Create a database user (Database Access) and note the username/password.
-3. Under Network Access, allow access from anywhere (`0.0.0.0/0`) - simplest option since Render's free tier uses dynamic IPs.
-4. Copy the connection string (Connect → Drivers) - this is your `MONGO_URI`.
-
-### 2. Backend - Render
-1. Create a new **Web Service**, pointing at this repo, with **Root Directory** set to `backend`.
-2. Build command: `npm install`. Start command: `npm start`.
-3. Set environment variables:
-   ```
-   NODE_ENV=production
-   MONGO_URI=<your Atlas connection string>
-   JWT_SECRET=<a long random string>
-   JWT_EXPIRES_IN=7d
-   CLIENT_URL=<your Vercel frontend URL, added after step 3>
-   OPENAI_API_KEY=<your key, optional>
-   OPENAI_BASE_URL=<blank for OpenAI, or Groq's endpoint>
-   OPENAI_MODEL=gpt-4o-mini
-   ```
-4. Deploy. Note the resulting URL (e.g. `https://collabboard-api.onrender.com`).
-
-> **Known limitation:** Render's free tier spins the service down after inactivity, so the first request after a while sleeping has a ~30-60s cold start. Worth mentioning proactively in an interview rather than letting someone discover it.
-
-### 3. Frontend - Vercel
-1. Import this repo into [Vercel](https://vercel.com), with **Root Directory** set to `frontend`.
-2. Framework preset: Vite. Build command: `npm run build`. Output directory: `dist`.
-3. Set environment variables:
-   ```
-   VITE_API_BASE_URL=https://<your-render-backend>.onrender.com/api
-   VITE_SOCKET_URL=https://<your-render-backend>.onrender.com
-   ```
-4. Deploy. Then go back to Render and set `CLIENT_URL` to this Vercel URL (needed for CORS on both the REST API and Socket.io) and redeploy the backend.
-
-### Post-deploy checklist
-- [ ] `CLIENT_URL` on Render exactly matches the Vercel URL (including `https://`, no trailing slash)
-- [ ] `VITE_API_BASE_URL` / `VITE_SOCKET_URL` on Vercel point at the Render URL
-- [ ] MongoDB Atlas network access allows Render's IPs
-- [ ] Register a test account and confirm the whiteboard syncs between two tabs
 
 ---
 
